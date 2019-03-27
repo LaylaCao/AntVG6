@@ -62,7 +62,11 @@ export default {
     const graph = new G6.Graph({
       container: 'mountNode',
       width: 500,
-      height: 500
+      height: 500,
+      modes: { // 支持的 behavior
+        default: ['click-select'],
+        drag: ['drag-node','drag-canvas']
+      }
     });
     graph.data(data);
     graph.render();
