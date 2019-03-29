@@ -135,7 +135,7 @@ export default {
     // 图画布的定义
     const graph = new G6.Graph({
       container: 'mountNode',
-      width: 500,
+      width: 1000,
       height: 500,
       modes: { // 支持的 behavior
         default: ['drag-node','click-select', 'drag-canvas']

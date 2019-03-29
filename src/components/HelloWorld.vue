@@ -1,80 +1,184 @@
 <template>
-  <div id="mountNode"><h2>This is a home page</h2></div>
+  <div>
+    <div @click="addData" style="cursor:pointer">添加节点</div>
+    <div @click="editData" style="cursor:pointer">连接节点</div>
+    <div id="mountNode" ref="mountNode"></div>
+  </div>
 </template>
 
 <script>
-// import dagre from 'dagre';
+import dagre from 'dagre';
 import G6 from '@antv/g6';
 
 export default {
+  /* eslint-disable no-plusplus */
+  /* eslint no-underscore-dangle: off */
+  /* eslint-disable no-underscore-dangle */
+  /* eslint no-console: "off" */
+  /* eslint no-param-reassign: "error" */
+  /* eslint-disable no-restricted-syntax */
+  /* eslint-disable max-len */
   name: 'HelloWorld',
   data() {
     return {
       data: {
-        nodes: [
-          {id: '1', x: 50, y: 50, size: 20},
-          {id: '2', x: 150, y: 50, size: 20},
-          {id: '3', x: 50, y: 100, size: 20},
-          {id: '4', x: 150, y: 100, size: 20},
-          {id: '5', x: 50, y: 150, size: 20},
-          {id: '6', x: 150, y: 150, size: 20},
-          {id: '7', x: 50, y: 200, size: 20},
-          {id: '8', x: 150, y: 200, size: 20},
-        ],
-        edges: [
-          {source: '1', target: '2', shape: 'line'},
-          {source: '3', target: '4', shape: 'polyline', controlPoints: [{x: 100, y: 70}]},
-          {
-            source: '5', 
-            target: '6',
-            shape: 'quadratic',
-            color: '#722ed1',
-            size: 2,
-            style: {
-              lineDash: [2, 2]
-            },
-            label: 'quadratic',
-            labelCfg: {
-              position: 'center', // 其实默认就是 center，这里写出来便于理解
-              autoRotate: true,
-              style: {
-                lineWidth: 5,
-                stroke: 'white' // 给文本添加白边和白色背景
-              }
-            }
-          },
-          {
-            source: '7', 
-            target: '8', 
-            shape: 'cubic',
-            label: 'quadratic',
-            labelCfg: {
-              autoRotate: true,
-              refY: -10 // refY 默认是顺时针方向向下，所以需要设置负值
-            }
-          }
-        ]
-      }
-    }
+        nodes: [{
+          id: '收集日志',
+        }, {
+          id: '入 es 集群',
+        }, {
+          id: '入 hdfs',
+        }, {
+          id: 'hive 计算',
+        }, {
+          id: 'report',
+        }],
+        edges: [{
+          source: '收集日志',
+          target: '入 es 集群',
+        }, {
+          source: '收集日志',
+          target: '入 hdfs',
+        }, {
+          source: '入 hdfs',
+          target: 'hive 计算',
+        }, {
+          source: '入 es 集群',
+          target: 'hive 计算',
+        }, {
+          source: 'hive 计算',
+          target: 'report',
+        }],
+      },
+      graph: null,
+      nodeIndex: 0,
+    };
   },
   mounted() {
-    const data = this.data
-    const graph = new G6.Graph({
-      container: 'mountNode',
-      width: 500,
-      height: 500,
-      modes: { // 支持的 behavior
-        default: ['click-select'],
-        drag: ['drag-node','drag-canvas']
-      }
-    });
-    graph.data(data);
-    graph.render();
+    this.renderFlow();
   },
-}
+  methods: {
+    renderFlow() {
+      const data = this.data;
+      const g = new dagre.graphlib.Graph();
+      g.setDefaultEdgeLabel(() => ({}));
+      g.setGraph({
+        rankdir: 'TB',
+      });
+      data.nodes.forEach((node) => {
+        node.label = `${node.id}`;
+        g.setNode(node.id, {
+          width: 150,
+          height: 50,
+        });
+      });
+      data.edges.forEach((edge) => {
+        g.setEdge(edge.source, edge.target);
+      });
+      dagre.layout(g);
+      let coord = null;
+      g.nodes().forEach((node, i) => {
+        coord = g.node(node);
+        data.nodes[i].x = coord.x;
+        data.nodes[i].y = coord.y;
+      });
+      g.edges().forEach((edge, i) => {
+        coord = g.edge(edge);
+        data.edges[i].startPoint = coord.points[0];
+        data.edges[i].endPoint = coord.points[coord.points.length - 1];
+        data.edges[i].controlPoints = coord.points.slice(1, coord.points.length - 1);
+      });
+      G6.registerNode('operation', {
+        drawShape: function drawShape(cfg, group) {
+          const rect = group.addShape('rect', {
+            attrs: {
+              x: -75,
+              y: -25,
+              width: 150,
+              height: 50,
+              radius: 10,
+              stroke: '#00C0A5',
+              fill: '#92949F',
+              fillOpacity: 0.45,
+              lineWidth: 2,
+            },
+          });
+          return rect;
+        },
+      }, 'single-shape');
+
+      const graph = new G6.Graph({
+        container: 'mountNode',
+        width: window.innerWidth,
+        height: window.innerHeight,
+        pixelRatio: 2,
+        defaultNode: {
+          shape: 'operation',
+          labelCfg: {
+            style: {
+              fill: '#666',
+              fontSize: 14,
+              fontWeight: 'bold',
+            },
+          },
+        },
+        defaultEdge: {
+          shape: 'polyline',
+        },
+        edgeStyle: {
+          default: {
+            endArrow: true,
+            lineWidth: 2,
+            stroke: '#ccc',
+          },
+        },
+      });
+      graph.data(data);
+      graph.render();
+      graph.fitView();
+      this.graph = graph;
+    },
+    addData() {
+      const node = this.graph.getNodes()[0];
+      const count = this.getNotConnection();
+      console.log(count);
+      const xIndex = node._cfg.bboxCache.maxX + node._cfg.bboxCache.width + node._cfg.bboxCache.height;
+      const yIndex = (count * node._cfg.bboxCache.height) + (node._cfg.bboxCache.height / 2) + (count * 10);
+      this.nodeIndex += 1;
+      this.data.nodes.push({
+        label: `节点${this.nodeIndex}`,
+        id: `nodeIndex${this.nodeIndex}`,
+        x: xIndex,
+        y: yIndex });
+      this.refresh();
+    },
+    editData() {
+      this.data.edges.push({
+        source: '收集日志',
+        target: `nodeIndex${this.nodeIndex}`,
+      });
+      this.refreshConnect();
+    },
+    refresh() {
+      this.graph.changeData(this.data);
+      this.graph.refresh();
+    },
+    refreshConnect() {
+      this.graph.destroy();
+      this.renderFlow();
+    },
+    getNotConnection() {
+      let count = 0;
+      for (const node of this.data.nodes) {
+        for (const edge of this.data.edges) {
+          if (node.id !== edge.source && node.id !== edge.target) {
+            count++;
+            break;
+          }
+        }
+      }
+      return count - this.data.edges.length;
+    },
+  },
+};
 </script>
-
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-
-</style>
